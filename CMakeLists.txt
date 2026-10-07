@@ -22,6 +22,12 @@ FetchContent_Declare(imgui
 FetchContent_MakeAvailable(glfw imgui)
 find_package(OpenGL REQUIRED)
 
+# put the exe in the project root (next to assets/) instead of build/
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR})
+foreach(cfg DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${cfg} ${CMAKE_SOURCE_DIR})
+endforeach()
+
 add_executable(csopesy_os
     src/main.cpp
     src/BootScreen.cpp
@@ -45,7 +51,8 @@ target_include_directories(csopesy_os PRIVATE
 
 target_link_libraries(csopesy_os PRIVATE glfw OpenGL::GL)
 
-# copy assets (wallpaper, fonts) next to the exe
-add_custom_command(TARGET csopesy_os POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/assets $<TARGET_FILE_DIR:csopesy_os>/assets)
+# mingw: link the runtime statically so the exe still runs when you
+# double click it (no missing libstdc++ / libgcc dll errors)
+if(MINGW)
+    target_link_options(csopesy_os PRIVATE -static-libgcc -static-libstdc++)
+endif()
