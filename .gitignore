@@ -1,3 +1,5 @@
 /build/
 /csopesy_os
 *.exe
+csopesy_os.ilk
+csopesy_os.pdb

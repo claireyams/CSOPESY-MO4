@@ -6,7 +6,7 @@
 struct FakeProcess {
     std::string name;
     int   pid;
-    float cpu;      // percent
+    float cpu;
     float memMB;
 };
 
@@ -16,9 +16,9 @@ public:
     void render(OSState& os);
 
 private:
-    void updateFakeValues();    // so the numbers move a bit
+    void updateFakeValues();
     void drawProcessTable();
-    void drawSummaryBar();      // total cpu / mem at the top
+    void drawSummaryBar();
 
     std::vector<FakeProcess> procs;
     double lastUpdate = 0.0;
