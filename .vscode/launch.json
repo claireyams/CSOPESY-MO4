@@ -1,0 +1,12 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run csopesy_os",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "cmake --build build; if ($?) { .\\csopesy_os.exe --skip-boot --dev }",
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}
