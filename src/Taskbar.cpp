@@ -13,15 +13,22 @@ void Taskbar::render(OSState& os) {
         ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);
 
     // spec: at least 3 icon buttons. 2 = unique apps, 1 = task manager.
-    if (iconButton("files",   "FILES", os.showFiles))    os.showFiles   = !os.showFiles;
-    ImGui::SameLine();
-    if (iconButton("taskmgr", "TASK",  os.showTaskMgr))  os.showTaskMgr = !os.showTaskMgr;
-    ImGui::SameLine();
-    if (iconButton("sysinfo", "INFO",  os.showSysInfo))  os.showSysInfo = !os.showSysInfo;
+    if (iconButton("files", "FILES", os.showFiles)) os.showFiles = !os.showFiles;
 
-    // TODO [M3]: put a thin separator line between the buttons like the screenshot
-    // TODO [M3]: add more buttons if you want (INIT / START / STOP / SRCH in the sample).
-    //            not required, only the 3 above are
+    // thin vertical line after the first button
+    ImGui::SameLine();
+    {
+        ImVec2 p = ImGui::GetCursorScreenPos();
+        ImGui::GetWindowDrawList()->AddLine(ImVec2(p.x + 6.f, p.y + 4.f),
+                                            ImVec2(p.x + 6.f, p.y + 36.f),
+                                            IM_COL32(255, 255, 255, 50), 1.f);
+        ImGui::Dummy(ImVec2(12.f, 40.f));
+    }
+
+    ImGui::SameLine();
+    if (iconButton("taskmgr", "TASK", os.showTaskMgr)) os.showTaskMgr = !os.showTaskMgr;
+    ImGui::SameLine();
+    if (iconButton("sysinfo", "INFO", os.showSysInfo)) os.showSysInfo = !os.showSysInfo;
 
     drawTray();
     drawPwrButton(os);
@@ -32,32 +39,122 @@ void Taskbar::render(OSState& os) {
 }
 
 bool Taskbar::iconButton(const char* id, const char* label, bool active) {
-    // TODO [M3]: make this look like an actual icon button.
-    //   - draw a rounded rect / circle with the DrawList instead of a plain button
-    //   - different color on hover (ImGui::IsItemHovered)
-    //   - little underline or dot under it when 'active' is true (shows running app)
-    //   - if you have icon textures use ImGui::ImageButton
-    //   for now its just a normal button so everything is clickable
+    const ImVec2 size(60.f, 40.f);
+
     ImGui::PushID(id);
-    if (active) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.4f, 0.7f, 1.f));
-    bool clicked = ImGui::Button(label, ImVec2(60, 38));
-    if (active) ImGui::PopStyleColor();
+    ImVec2 pos = ImGui::GetCursorScreenPos();
+    bool clicked = ImGui::InvisibleButton("##btn", size);
+    bool hovered = ImGui::IsItemHovered();
+    bool pressed = ImGui::IsItemActive();
     ImGui::PopID();
+
+    ImU32 bg = IM_COL32(38, 40, 56, 255);
+    if (active)  bg = IM_COL32(45, 85, 150, 255);
+    if (hovered) bg = active ? IM_COL32(60, 105, 175, 255) : IM_COL32(58, 62, 84, 255);
+    if (pressed) bg = IM_COL32(30, 60, 110, 255);
+
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    ImVec2 end = ImVec2(pos.x + size.x, pos.y + size.y);
+    dl->AddRectFilled(pos, end, bg, 10.f);
+
+    ImVec2 ts = ImGui::CalcTextSize(label);
+    float textY = pos.y + (size.y - ts.y) * 0.5f - (active ? 3.f : 0.f);
+    dl->AddText(ImVec2(pos.x + (size.x - ts.x) * 0.5f, textY),
+                IM_COL32(235, 235, 245, 255), label);
+
+    // small bar under the label means the app is open
+    if (active) {
+        float cx = pos.x + size.x * 0.5f;
+        dl->AddRectFilled(ImVec2(cx - 8.f, end.y - 7.f), ImVec2(cx + 8.f, end.y - 4.f),
+                          IM_COL32(120, 190, 255, 255), 2.f);
+    }
+
     return clicked;
 }
 
 void Taskbar::drawTray() {
-    // TODO [M3]: "VOL" and "NET" labels at the right side, left of PWR.
-    //            can be just text, maybe clicking VOL shows a small slider popup
-    //            (ImGui::BeginPopup + SliderInt) -- optional
+    static int  volume = 60;
+    static bool muted  = false;
+    static bool wifiOn = true;
+
+    float w = ImGui::GetWindowWidth();
+
+    // flat buttons, only light up on hover
+    ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.f, 0.f, 0.f, 0.f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.f, 1.f, 1.f, 0.10f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(1.f, 1.f, 1.f, 0.20f));
+
+    // VOL
+    ImGui::SameLine(w - 200.f);
+    ImGui::PushStyleColor(ImGuiCol_Text, muted ? ImVec4(0.6f, 0.6f, 0.6f, 1.f)
+                                               : ImVec4(1.f, 1.f, 1.f, 1.f));
+    bool volClicked = ImGui::Button("VOL", ImVec2(50, 38));
+    ImGui::PopStyleColor();
+    ImVec2 volTop = ImVec2((ImGui::GetItemRectMin().x + ImGui::GetItemRectMax().x) * 0.5f,
+                           ImGui::GetItemRectMin().y);
+    if (volClicked) ImGui::OpenPopup("##volpopup");
+
+    // centered above the button so it never runs off the right edge
+    ImGui::SetNextWindowPos(ImVec2(volTop.x, volTop.y - 6.f), ImGuiCond_Always, ImVec2(0.5f, 1.f));
+    if (ImGui::BeginPopup("##volpopup")) {
+        ImGui::Text("Volume");
+        ImGui::SetNextItemWidth(160.f);
+        ImGui::SliderInt("##vol", &volume, 0, 100);
+        ImGui::Checkbox("Mute", &muted);
+        ImGui::EndPopup();
+    }
+
+    // NET
+    ImGui::SameLine(w - 140.f);
+    ImGui::PushStyleColor(ImGuiCol_Text, wifiOn ? ImVec4(0.4f, 1.f, 0.5f, 1.f)
+                                                : ImVec4(0.6f, 0.6f, 0.6f, 1.f));
+    bool netClicked = ImGui::Button("NET", ImVec2(50, 38));
+    ImGui::PopStyleColor();
+    ImVec2 netTop = ImVec2((ImGui::GetItemRectMin().x + ImGui::GetItemRectMax().x) * 0.5f,
+                           ImGui::GetItemRectMin().y);
+    if (netClicked) ImGui::OpenPopup("##netpopup");
+
+    ImGui::SetNextWindowPos(ImVec2(netTop.x, netTop.y - 6.f), ImGuiCond_Always, ImVec2(0.5f, 1.f));
+    if (ImGui::BeginPopup("##netpopup")) {
+        ImGui::Text("Network");
+        ImGui::Separator();
+        ImGui::Checkbox("Wi-Fi", &wifiOn);
+        if (wifiOn) ImGui::TextDisabled("Connected: CSOPESY-LAN");
+        else        ImGui::TextDisabled("Not connected");
+        ImGui::EndPopup();
+    }
+
+    ImGui::PopStyleColor(3);
 }
 
 void Taskbar::drawPwrButton(OSState& os) {
-    // REQUIRED: this is the only legit way to close the app.
-    // TODO [M2/M3]:
-    //   - place the button at the far right of the taskbar (red text "PWR")
-    //   - on click -> open a confirm popup ("Shut down CSOPESY OS?" Yes / No)
-    //   - on Yes -> os.shutdownRequested = true;
-    //   main.cpp already handles the rest (shutdown screen then closes the window)
-    (void)os;
+    // the only way to close the app. main.cpp does the rest once
+    // shutdownRequested is set.
+    ImGui::SameLine(ImGui::GetWindowWidth() - 80.f);
+
+    ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.f, 0.f, 0.f, 0.f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.9f, 0.2f, 0.2f, 0.25f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.9f, 0.2f, 0.2f, 0.45f));
+    ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(1.f, 0.3f, 0.3f, 1.f));
+    if (ImGui::Button("PWR", ImVec2(60, 38))) {
+        ImGui::OpenPopup("Shut down?");
+    }
+    ImGui::PopStyleColor(4);
+
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    if (ImGui::BeginPopupModal("Shut down?", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("Shut down CSOPESY OS?");
+        ImGui::Separator();
+
+        if (ImGui::Button("Yes", ImVec2(100, 0))) {
+            os.shutdownRequested = true;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("No", ImVec2(100, 0))) {
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
 }
