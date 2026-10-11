@@ -92,8 +92,7 @@ static bool fileExists(const char* path) {
 static ImFont* loadMonoFont(const Config& cfg) {
     ImGuiIO& io = ImGui::GetIO();
 
-    // IMPORTANT: the first font added becomes the default for the whole UI,
-    // so add the normal imgui font first and the mono one second.
+    // The first font added becomes the default for the whole UI,
     io.Fonts->AddFontDefault();
 
     std::vector<std::string> candidates;
@@ -122,8 +121,6 @@ static void onGlfwError(int code, const char* msg) {
     fprintf(stderr, "GLFW error %d: %s\n", code, msg);
 }
 
-// the spec says the app must be closed with PWR, so we cancel the X button / alt+f4.
-// if you need to kill it while debugging, set g_allowClose = true here temporarily.
 static void onCloseAttempt(GLFWwindow* w) {
     if (!g_allowClose) glfwSetWindowShouldClose(w, GLFW_FALSE);
 }
@@ -133,8 +130,6 @@ static void applyStyle() {
     ImGuiStyle& s = ImGui::GetStyle();
     s.WindowRounding = 6.f;
     s.FrameRounding  = 4.f;
-    // TODO [M2]: tweak colors so it looks like our own OS, not default imgui
-    //            (title bar color, button colors, etc)
 }
 
 // main
@@ -156,7 +151,7 @@ int main(int argc, char** argv) {
         monitor = glfwGetPrimaryMonitor();
         const GLFWvidmode* mode = monitor ? glfwGetVideoMode(monitor) : nullptr;
         if (mode) { winW = mode->width; winH = mode->height; }
-        else      { monitor = nullptr; }   // couldnt get a mode, fall back to windowed
+        else      { monitor = nullptr; }   
     }
 
     GLFWwindow* window = glfwCreateWindow(winW, winH, "CSOPESY Desktop OS Emulator", monitor, nullptr);
@@ -168,7 +163,7 @@ int main(int argc, char** argv) {
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    ImGui::GetIO().IniFilename = nullptr;   // dont save window positions between runs
+    ImGui::GetIO().IniFilename = nullptr;  
     applyStyle();
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
@@ -218,7 +213,6 @@ int main(int argc, char** argv) {
             break;
 
         case Stage::SHUTDOWN:
-            // black fullscreen "Shutting down..." screen, then close after 2s
             boot.renderShutdown(glfwGetTime() - shutdownStart);
             if (glfwGetTime() - shutdownStart > 2.0) {
                 g_allowClose = true;

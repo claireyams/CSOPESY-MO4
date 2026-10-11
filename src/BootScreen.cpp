@@ -34,7 +34,7 @@ static const char* kFunFacts[] = {
 };
 static const int kFunCount = sizeof(kFunFacts) / sizeof(kFunFacts[0]);
 
-// ascii logo (one raw string per row so no backslash escaping is needed)
+// ascii logo
 static const char* kLogo[] = {
     R"LOGO(  ____  ____    ___   ____   _____  ____  __   __)LOGO",
     R"LOGO( / ___|/ ___|  / _ \ |  _ \ | ____|/ ___| \ \ / /)LOGO",
@@ -110,8 +110,7 @@ void BootScreen::renderBios(OSState& os) {
 
     beginFullscreen("##bios", IM_COL32(0, 0, 0, 255));
 
-    // show one more line every 'lineDelay' seconds so it looks like its booting.
-    // the fun fact lines count as extra lines after the normal ones.
+    // show one more line every 'lineDelay' seconds so it looks like it's booting
     int total = kBiosCount + kFunCount;
     int shown = (int)(t / lineDelay);
     if (shown > total) shown = total;
@@ -121,9 +120,8 @@ void BootScreen::renderBios(OSState& os) {
         ImGui::TextColored(textCol, "%s", kBiosLines[i]);
     }
 
-    // fun fact only appears once all the lines above are done
     if (shown > kBiosCount) {
-        ImGui::NewLine();   // blank line like the screenshot
+        ImGui::NewLine();  
         for (int i = 0; i < shown - kBiosCount; i++) {
             ImGui::PushStyleColor(ImGuiCol_Text, textCol);
             ImGui::TextWrapped("%s", kFunFacts[i]);
@@ -131,13 +129,11 @@ void BootScreen::renderBios(OSState& os) {
         }
     }
 
-    // blinking cursor on the line after the last one (0.5s on / 0.5s off)
     bool blinkOn = std::fmod(t, 1.0) < 0.5;
     ImGui::TextColored(textCol, "%s", blinkOn ? "_" : " ");
 
     endFullscreen();
 
-    // move on once everything is shown + a short pause so it can be read
     if (t > total * lineDelay + biosHold) {
         os.stage = Stage::LOADING;
         started = false;
@@ -154,7 +150,6 @@ void BootScreen::renderLoading(OSState& os) {
 
     beginFullscreen("##loading", IM_COL32(0, 0, 0, 255));
 
-    // logo, centered, roughly in the upper third like the screenshot
     ImGui::SetCursorPosY(vp->Size.y * 0.20f);
     for (int i = 0; i < kLogoCount; i++) centeredText(kLogo[i], cyan);
 
@@ -163,8 +158,7 @@ void BootScreen::renderLoading(OSState& os) {
     // credits under the logo
     for (int i = 0; i < kCreditCount; i++) centeredText(kCredits[i], white);
 
-    // "Loading." with 1-3 dots cycling every 0.4s. position is based on the
-    // widest version ("Loading...") so the text doesnt jump around.
+    // "Loading." with 1-3 dots cycling every 0.4s
     int dots = 1 + (int)(t / 0.4) % 3;
     char buf[16];
     snprintf(buf, sizeof(buf), "Loading%.*s", dots, "...");
@@ -183,7 +177,7 @@ void BootScreen::renderLoading(OSState& os) {
 void BootScreen::renderShutdown(double elapsed) {
     beginFullscreen("##shutdown", IM_COL32(0, 0, 0, 255));
 
-    // "Shutting down" + 0-3 dots, same no-jumping trick as the loading text
+    // "Shutting down" + 0-3 dots
     int dots = (int)(elapsed / 0.35) % 4;
     char buf[32];
     snprintf(buf, sizeof(buf), "Shutting down%.*s", dots, "...");
