@@ -1,8 +1,13 @@
 #pragma once
 #include "OS.h"
 
-// unique app #2. system info / settings screen. must look different from AppFiles
+// tabbed system details for the mock OS and its running display
 class AppSysInfo {
 public:
     void render(OSState& os);
+
+private:
+    void drawGeneral();
+    void drawDisplay();
+    void drawAbout();
 };
