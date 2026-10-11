@@ -7,7 +7,7 @@ public:
     void render(OSState& os);
 
 private:
-    void drawGeneral();
-    void drawDisplay();
-    void drawAbout();
+    void drawGeneral();  // simulated OS, hardware, and storage details
+    void drawDisplay();  // live display metrics and graphics stack
+    void drawAbout();    // project description, group credits, and version
 };

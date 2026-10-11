@@ -6,16 +6,17 @@
 
 namespace {
 struct FileEntry {
-    int parent;
+    int parent;  // index of the containing folder; -1 marks the root
     const char* name;
     const char* type;
     const char* size;
     const char* modified;
     bool folder;
-    const char* preview;
+    const char* preview;  // nullptr = show file details without a text preview
 };
 
 // folder IDs are array indexes, so parents and sidebar shortcuts stay stable
+// entries 1-4 are the root folders used by the sidebar
 constexpr FileEntry kEntries[] = {
     {-1, "Local Disk (C:)", "Folder", "--", "2026-09-18", true, nullptr},
     {0, "Documents", "Folder", "--", "2026-09-18", true, nullptr},
@@ -42,11 +43,13 @@ constexpr FileEntry kEntries[] = {
 };
 constexpr int kEntryCount = sizeof(kEntries) / sizeof(kEntries[0]);
 
+// follow parent folders back to C: to build the breadcrumb
 std::string folderPath(int folder) {
     if (folder == 0) return "This PC > Local Disk (C:)";
     return folderPath(kEntries[folder].parent) + " > " + kEntries[folder].name;
 }
 
+// keep the window above the taskbar when the desktop is resized
 void keepWindowInDesktop() {
     ImGuiViewport* vp = ImGui::GetMainViewport();
     const ImVec2 pos = ImGui::GetWindowPos();
@@ -61,6 +64,7 @@ void AppFiles::render(OSState& os) {
     if (!os.showFiles) return;
 
     ImGuiViewport* vp = ImGui::GetMainViewport();
+    // reserve 16 px at each edge and leave room for the taskbar
     const ImVec2 available(std::max(1.f, vp->Size.x - 32.f),
                            std::max(1.f, vp->Size.y - Taskbar::HEIGHT - 32.f));
     const ImVec2 size(std::min(900.f, available.x), std::min(460.f, available.y));
@@ -74,6 +78,7 @@ void AppFiles::render(OSState& os) {
         drawToolbar();
         ImGui::Separator();
 
+        // the negative child height leaves space for the two-line status bar
         const float footerHeight = ImGui::GetTextLineHeightWithSpacing() * 2.f + 12.f;
         bool openAfterContent = false;
         if (ImGui::BeginChild("browser", ImVec2(0, -footerHeight))) {
@@ -98,11 +103,13 @@ void AppFiles::render(OSState& os) {
 
 void AppFiles::navigateTo(int folder) {
     if (folder < 0 || folder >= kEntryCount || !kEntries[folder].folder) return;
+    // selection and scroll position reset when entering a different folder
     currentFolder = folder;
     selectedEntry = -1;
     resetFileScroll = true;
 }
 
+// folders change location; files open the preview popup
 void AppFiles::openSelected() {
     if (selectedEntry < 0 || selectedEntry >= kEntryCount) return;
     if (kEntries[selectedEntry].folder) {
@@ -157,13 +164,14 @@ bool AppFiles::drawFileTable() {
         ImGui::TableHeadersRow();
 
         int itemCount = 0;
+        // list only direct children of the current folder
         for (int i = 1; i < kEntryCount; ++i) {
             const FileEntry& entry = kEntries[i];
             if (entry.parent != currentFolder) continue;
             ++itemCount;
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
-            ImGui::PushID(i);
+            ImGui::PushID(i);  // unique row ID even if filenames repeat
             if (ImGui::Selectable(entry.name, selectedEntry == i,
                     ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick)) {
                 selectedEntry = i;
@@ -218,6 +226,7 @@ void AppFiles::drawPreview() {
     if (ImGui::BeginPopupModal("File Preview", &showPreview)) {
         keepWindowInDesktop();
         const FileEntry& entry = kEntries[previewEntry];
+        // keep Close visible while longer previews scroll inside the child panel
         const float footerHeight = ImGui::GetFrameHeightWithSpacing() + 8.f;
         if (ImGui::BeginChild("previewContent", ImVec2(0, -footerHeight))) {
             ImGui::TextWrapped("%s", entry.name);
@@ -236,5 +245,6 @@ void AppFiles::drawPreview() {
         }
         ImGui::EndPopup();
     }
+    // clear the preview after either close button or another popup dismissal
     if (!showPreview || !ImGui::IsPopupOpen("File Preview")) previewEntry = -1;
 }

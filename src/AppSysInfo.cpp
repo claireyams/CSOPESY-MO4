@@ -5,6 +5,7 @@
 #include <cstdio>
 
 namespace {
+// shared label/value row; long values wrap when the window is narrow
 void infoRow(const char* label, const char* value) {
     ImGui::TableNextRow();
     ImGui::TableSetColumnIndex(0);
@@ -13,6 +14,7 @@ void infoRow(const char* label, const char* value) {
     ImGui::TextWrapped("%s", value);
 }
 
+// fixed label width keeps the values lined up across all sections
 bool beginInfoTable(const char* id) {
     if (!ImGui::BeginTable(id, 2, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp)) return false;
     ImGui::TableSetupColumn("Property", ImGuiTableColumnFlags_WidthFixed, 130.f);
@@ -26,6 +28,7 @@ void sectionTitle(const char* title) {
     ImGui::Separator();
 }
 
+// keep the window above the taskbar when the desktop is resized
 void keepWindowInDesktop() {
     ImGuiViewport* vp = ImGui::GetMainViewport();
     const ImVec2 pos = ImGui::GetWindowPos();
@@ -40,6 +43,7 @@ void AppSysInfo::render(OSState& os) {
     if (!os.showSysInfo) return;
 
     ImGuiViewport* vp = ImGui::GetMainViewport();
+    // reserve 16 px at each edge and leave room for the taskbar
     const ImVec2 available(std::max(1.f, vp->Size.x - 32.f),
                            std::max(1.f, vp->Size.y - Taskbar::HEIGHT - 32.f));
     const ImVec2 size(std::min(520.f, available.x), std::min(440.f, available.y));
@@ -57,6 +61,7 @@ void AppSysInfo::render(OSState& os) {
         ImGui::TextDisabled("Your system at a glance");
         ImGui::Spacing();
 
+        // each tab gets its own scrolling region for smaller windows
         if (ImGui::BeginTabBar("systemTabs")) {
             if (ImGui::BeginTabItem("General")) {
                 if (ImGui::BeginChild("generalContent", ImVec2(0, 0))) drawGeneral();
@@ -79,6 +84,7 @@ void AppSysInfo::render(OSState& os) {
     ImGui::End();
 }
 
+// hardware and storage values match the simulated BIOS in BootScreen.cpp
 void AppSysInfo::drawGeneral() {
     sectionTitle("Operating System");
     if (beginInfoTable("osDetails")) {
@@ -109,15 +115,18 @@ void AppSysInfo::drawGeneral() {
     }
 }
 
+// read ImGui's metrics each frame so the Display tab stays up to date
 void AppSysInfo::drawDisplay() {
     const ImGuiIO& io = ImGui::GetIO();
     char viewport[64], framebuffer[64], frameRate[64], frameTime[64], sessionTime[64];
     std::snprintf(viewport, sizeof(viewport), "%.0f x %.0f", io.DisplaySize.x, io.DisplaySize.y);
+    // framebuffer size includes the pixel scale on high-DPI displays
     std::snprintf(framebuffer, sizeof(framebuffer), "%.0f x %.0f",
                   io.DisplaySize.x * io.DisplayFramebufferScale.x,
                   io.DisplaySize.y * io.DisplayFramebufferScale.y);
     std::snprintf(frameRate, sizeof(frameRate), "%.1f FPS", io.Framerate);
     std::snprintf(frameTime, sizeof(frameTime), "%.2f ms", io.Framerate > 0.f ? 1000.f / io.Framerate : 0.f);
+    // ImGui's clock starts with the UI context, including time on the boot screens
     const int seconds = static_cast<int>(ImGui::GetTime());
     std::snprintf(sessionTime, sizeof(sessionTime), "%02d:%02d:%02d",
                   seconds / 3600, (seconds / 60) % 60, seconds % 60);
@@ -149,6 +158,7 @@ void AppSysInfo::drawAbout() {
     ImGui::Spacing();
     ImGui::TextWrapped("Explore sample files, view system information, and monitor simulated processes through the taskbar.");
 
+    // group names match README.md
     sectionTitle("Created By");
     ImGui::TextWrapped("CHIU, Kristopher Lance");
     ImGui::TextWrapped("KE, Xan Luo");
