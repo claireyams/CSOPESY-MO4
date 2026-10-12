@@ -1,5 +1,6 @@
 #include "Taskbar.h"
 #include "imgui.h"
+#include <cstring>
 
 void Taskbar::render(OSState& os) {
     ImGuiViewport* vp = ImGui::GetMainViewport();
@@ -13,7 +14,7 @@ void Taskbar::render(OSState& os) {
         ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);
 
     // spec: at least 3 icon buttons. 2 = unique apps, 1 = task manager.
-    if (iconButton("files", "FILES", os.showFiles)) os.showFiles = !os.showFiles;
+    if (iconButton("files", "FILE EXPLORER", os.showFiles)) os.showFiles = !os.showFiles;
 
     // thin vertical line after the first button
     ImGui::SameLine();
@@ -26,9 +27,9 @@ void Taskbar::render(OSState& os) {
     }
 
     ImGui::SameLine();
-    if (iconButton("taskmgr", "TASK", os.showTaskMgr)) os.showTaskMgr = !os.showTaskMgr;
+    if (iconButton("sysinfo", "SYSTEM INFORMATION", os.showSysInfo)) os.showSysInfo = !os.showSysInfo;
     ImGui::SameLine();
-    if (iconButton("sysinfo", "INFO", os.showSysInfo)) os.showSysInfo = !os.showSysInfo;
+    if (iconButton("taskmgr", "TASK MANAGER", os.showTaskMgr)) os.showTaskMgr = !os.showTaskMgr;
 
     drawTray();
     drawPwrButton(os);
@@ -57,10 +58,27 @@ bool Taskbar::iconButton(const char* id, const char* label, bool active) {
     ImVec2 end = ImVec2(pos.x + size.x, pos.y + size.y);
     dl->AddRectFilled(pos, end, bg, 10.f);
 
-    ImVec2 ts = ImGui::CalcTextSize(label);
-    float textY = pos.y + (size.y - ts.y) * 0.5f - (active ? 3.f : 0.f);
-    dl->AddText(ImVec2(pos.x + (size.x - ts.x) * 0.5f, textY),
-                IM_COL32(235, 235, 245, 255), label);
+    // icon drawn with shapes, centered in the button
+    ImU32 ic = IM_COL32(235, 235, 245, 255);
+    ImVec2 c = ImVec2(pos.x + size.x * 0.5f, pos.y + size.y * 0.5f - (active ? 3.f : 0.f));
+    if (strcmp(id, "files") == 0) {
+        // folder
+        dl->AddRectFilled(ImVec2(c.x - 10, c.y - 8), ImVec2(c.x - 1, c.y - 4), ic, 2.f);
+        dl->AddRectFilled(ImVec2(c.x - 10, c.y - 5), ImVec2(c.x + 10, c.y + 8), ic, 2.f);
+    } else if (strcmp(id, "taskmgr") == 0) {
+        // bar chart
+        dl->AddRectFilled(ImVec2(c.x - 10, c.y - 2), ImVec2(c.x - 5, c.y + 8), ic);
+        dl->AddRectFilled(ImVec2(c.x - 3,  c.y - 9), ImVec2(c.x + 2, c.y + 8), ic);
+        dl->AddRectFilled(ImVec2(c.x + 4,  c.y + 1), ImVec2(c.x + 9, c.y + 8), ic);
+    } else if (strcmp(id, "sysinfo") == 0) {
+        // circled "i"
+        dl->AddCircle(c, 10.f, ic, 24, 2.f);
+        dl->AddCircleFilled(ImVec2(c.x, c.y - 4.5f), 1.6f, ic);
+        dl->AddLine(ImVec2(c.x, c.y - 1.f), ImVec2(c.x, c.y + 5.f), ic, 2.f);
+    }
+
+    // name shows up when you hover, like a real taskbar
+    if (hovered) ImGui::SetTooltip("%s", label);
 
     // small bar under the label means the app is open
     if (active) {
